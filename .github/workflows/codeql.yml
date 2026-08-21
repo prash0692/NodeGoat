@@ -98,4 +98,19 @@ jobs:
       uses: github/codeql-action/analyze@v4
       with:
         category: "/language:${{matrix.language}}"
+        
+    - name: Fail build on Critical severity alerts        
+      run: |
+        ALERTS=$(gh api /repos/${{ github.repository }}/code-scanning/alerts \
+          --jq '[.[] | select(.state=="open" and .rule.security_severity_level=="critical")]')
+        COUNT=$(echo "$ALERTS" | jq 'length')
+        if [ "$COUNT" -gt 0 ]; then
+          echo "❌ Found $COUNT open Critical severity alert(s). Blocking merge."
+          echo "$ALERTS" | jq -r '.[] | "- \(.rule.description) in \(.most_recent_instance.location.path)"'
+          exit 1
+        else
+          echo "✅ No Critical severity alerts found."
+        fi
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
